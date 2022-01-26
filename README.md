@@ -1,0 +1,1 @@
+# A ROS Package for all hardware nodes for the NRMC robots project

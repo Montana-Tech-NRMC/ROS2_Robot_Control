@@ -19,10 +19,14 @@ include_directories(include)
 add_executable(bus_pirate src/bus_pirate.cpp)
 ament_target_dependencies(bus_pirate rclcpp)
 
+add_executable(udp_server src/server.cpp)
+ament_target_dependencies(udp_server rclcpp)
+
 target_link_libraries(bus_pirate i2c)
 
 install(TARGETS 
   bus_pirate
+  udp_server
   DESTINATION lib/${PROJECT_NAME}
 )
 

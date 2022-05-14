@@ -1,8 +1,19 @@
 #ifndef BUS_PIRATE
 #define BUS_PIRATE
 
+/* Global includes */
+#include <unistd.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+
+/* Local includes */
+#include "rclcpp/rclcpp.hpp"
+#include "nrmc_robot_interfaces/msg/client_cmd.hpp"
+#include "nrmc_robot_interfaces/msg/pid_set.hpp"
+
 #define DEVICE_A 0x48
-#define DEVICE_B 0x44
+#define ARM      0x44
 
 //Register Map
 //Read Write Block
@@ -20,6 +31,12 @@
 #define DES_POS_A_H        0x0A
 #define DES_POS_B_L        0x0B
 #define DES_POS_B_H        0x0C
+#define PID_GAIN_MULT      0x0D
+#define PID_GAIN_DIV       0x0E
+#define PID_INT_MULT       0x0F
+#define PID_INT_DIV        0x10
+#define PID_DIF_MULT       0x11
+#define PID_DIF_DIV        0x12
 
 #define READONLY           0x20
 /// Read only Registers
@@ -48,15 +65,6 @@
 #define ADC_B ADC_B_L 
 #define ADC_C ADC_C_L
 
-/* Global includes */
-#include <unistd.h>
-#include <stdio.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-
-/* Local includes */
-#include "rclcpp/rclcpp.hpp"
-
 class BusPirate: public rclcpp::Node
 {
 public:
@@ -65,14 +73,22 @@ public:
     ~BusPirate();
 
 private:
+    int target = 0;
+    rclcpp::Subscription<nrmc_robot_interfaces::msg::ClientCmd>::SharedPtr subscriber_;
 
-    int startServer();
+    rclcpp::Subscription<nrmc_robot_interfaces::msg::PIDSet>::SharedPtr pidSetSubscriber_;
+
+    void callbackClientCmd(const nrmc_robot_interfaces::msg::ClientCmd::SharedPtr msg);
+
+    void callbackPIDSet(const nrmc_robot_interfaces::msg::PIDSet::SharedPtr msg);
 
     void setMotorSpeedA(__u16 speed);
 
     void setMotorSpeedB(__u16 speed);
 
     void setDesiredPositionA(__u16 angle);
+
+    __u16 getMotorSpeedA();
 
     __u16 getDesiredPositionA();
 

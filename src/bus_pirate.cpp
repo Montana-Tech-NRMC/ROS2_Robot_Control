@@ -13,44 +13,51 @@ extern "C" {
     #include <arpa/inet.h>
 }
 
-int BusPirate::startServer() {
-    return 0;
-}
-
 int angle;
 int command;
 
 BusPirate::BusPirate() : Node("bus_pirate") {
-    devices_ = {DEVICE_A, DEVICE_B};
-
     fd = open("/dev/i2c-1", O_RDWR);
     if (fd < 0) {
         RCLCPP_ERROR(this->get_logger(), "Cannot open i2c bus");
         exit(1);
     }
-    setTarget(DEVICE_B);
 
-    setDesiredPositionA(angle);
+    subscriber_ = this->create_subscription<nrmc_robot_interfaces::msg::ClientCmd>("client_cmd", 10,
+                            std::bind(&BusPirate::callbackClientCmd, this, std::placeholders::_1));
+    
+    pidSetSubscriber_ = this->create_subscription<nrmc_robot_interfaces::msg::PIDSet>("pid_set", 10,
+                            std::bind(&BusPirate::callbackPIDSet, this, std::placeholders::_1));
+}
 
-    RCLCPP_INFO(this->get_logger(), "set desired position to %d", angle);
+void BusPirate::callbackPIDSet(const nrmc_robot_interfaces::msg::PIDSet::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "%d %d %d", msg->i_div, msg->p_div, msg->d_div);
+    if(this->target != ARM) {
+        setTarget(ARM);
+    }
 
-    unsigned int despos = getDesiredPositionA();
+    i2cWriteByte(PID_GAIN_MULT, (unsigned char) msg->p_mult);
+    i2cWriteByte(PID_GAIN_DIV,  (unsigned char) msg->p_div);
+    i2cWriteByte(PID_INT_MULT,  (unsigned char) msg->i_mult);
+    i2cWriteByte(PID_INT_DIV,   (unsigned char) msg->i_div);
+    i2cWriteByte(PID_DIF_MULT,  (unsigned char) msg->d_mult);
+    i2cWriteByte(PID_DIF_DIV,   (unsigned char) msg->d_div);
+    i2cWriteByte(0xCC, 5);
+}
 
-    RCLCPP_INFO(this->get_logger(), "des pos read %d", despos);
+void BusPirate::callbackClientCmd(const nrmc_robot_interfaces::msg::ClientCmd::SharedPtr msg) {
+    RCLCPP_INFO(this->get_logger(), "%d %x %d", msg->angle, msg->command, msg->max_speed);
+    if(this->target != ARM) {
+        setTarget(ARM);
+    }
+    setDesiredPositionA(msg->angle);
+    setMotorSpeedA(msg->max_speed);
+    i2cWriteByte(0xCC, msg->command);
 
-    RCLCPP_INFO(this->get_logger(), "command sent %x", command);
+    int desiredPos = getDesiredPositionA();
+    int setSpeed = getMotorSpeedA();
 
-    i2cWriteByte(0xCC, command);
-
-/*
-    unsigned int val = i2cReadWord(DESIRED_SPEED_A);
-
-    RCLCPP_INFO(this->get_logger(), "read val %d", val);
-    int position = getMotorPositionA();
-
-    RCLCPP_INFO(this->get_logger(), "read position %d", position);
-
-*/
+    RCLCPP_INFO(this->get_logger(), "Read speed: %d, angle: %d", setSpeed, desiredPos);
 }
 
 void BusPirate::setMotorSpeedA(__u16 speed) {
@@ -63,7 +70,6 @@ void BusPirate::setMotorSpeedB(__u16 speed) {
 
 void BusPirate::setDesiredPositionA(__u16 angle) {
     i2cWriteWord(DESIRED_POSITION_A, angle);
-    //return i2cReadWord(DESIRED_POSITION_A);
 }
 
 __u16 BusPirate::getDesiredPositionA() {
@@ -72,6 +78,10 @@ __u16 BusPirate::getDesiredPositionA() {
 
 __u16 BusPirate::getMotorPositionA() {
     return i2cReadWord(POSITION_A_L);
+}
+
+__u16 BusPirate::getMotorSpeedA() {
+    return i2cReadWord(DESIRED_SPEED_A);
 }
 
 
@@ -127,7 +137,6 @@ int main(int argc, char** argv) {
     }
     rclcpp::init(argc, argv);
     auto node = std::make_shared<BusPirate>();
-    std::cout << angle << std::endl;
     rclcpp::spin(node);
     rclcpp::shutdown();
 }

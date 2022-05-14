@@ -13,20 +13,17 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(nrmc_robot_interfaces REQUIRED)
 
 include_directories(include)
 
 add_executable(bus_pirate src/bus_pirate.cpp)
-ament_target_dependencies(bus_pirate rclcpp)
-
-add_executable(udp_server src/server.cpp)
-ament_target_dependencies(udp_server rclcpp)
+ament_target_dependencies(bus_pirate rclcpp nrmc_robot_interfaces)
 
 target_link_libraries(bus_pirate i2c)
 
 install(TARGETS 
   bus_pirate
-  udp_server
   DESTINATION lib/${PROJECT_NAME}
 )
 
